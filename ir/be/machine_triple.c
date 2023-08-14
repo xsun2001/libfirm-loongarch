@@ -129,6 +129,8 @@ ir_machine_triple_t *ir_get_host_machine_triple(void)
 		"arm";
 #elif defined(__aarch64__)
 		"aarch64";
+#elif defined(__loongarch64__)
+		"loongarch64";
 #else
 		"unknown";
 #endif

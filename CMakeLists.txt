@@ -416,6 +416,12 @@ add_backend(riscv
 	ir/be/riscv/riscv_nodes_attr.c
 	ir/be/riscv/riscv_transform.c
 )
+add_backend(loongarch64
+	ir/be/loongarch64/loongarch64_bearch.c
+	ir/be/loongarch64/loongarch64_emitter.c
+	ir/be/loongarch64/loongarch64_new_nodes.c
+	ir/be/loongarch64/loongarch64_transform.c
+)
 add_backend(TEMPLATE
 	ir/be/TEMPLATE/TEMPLATE_bearch.c
 	ir/be/TEMPLATE/TEMPLATE_emitter.c

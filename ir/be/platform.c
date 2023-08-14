@@ -155,6 +155,13 @@ void ir_platform_set(ir_machine_triple_t const *machine,
 		ppdef("__riscv_xlen", "32");
 		ir_platform.long_double_size  = 16;
 		ir_platform.long_double_align = 16;
+	} else if (streq(cpu, "loongarch64")) {
+		ppdef1("__loongarch__");
+		ppdef1("__loongarch64");
+		ppdef("__loongarch_grlen", "64");
+		ppdef("__loongarch_fplen", "64");
+		ir_platform.long_double_size  = 16;
+		ir_platform.long_double_align = 16;
 	} else if (streq(cpu, "TEMPLATE")) {
 		ir_platform.long_double_size  = 8;
 		ir_platform.long_double_align = 8;

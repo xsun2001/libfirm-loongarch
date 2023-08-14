@@ -95,6 +95,7 @@ void be_init_modules(void)
 	be_init_arch_sparc();
 	be_init_arch_amd64();
 	be_init_arch_riscv32();
+	be_init_arch_loongarch64();
 	be_init_arch_TEMPLATE();
 
 	be_init_listsched();
