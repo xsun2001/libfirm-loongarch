@@ -110,10 +110,20 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
  */
 static void emit_loongarch64_Jmp(const ir_node *node) { loongarch64_emitf(node, "jmp %L", node); }
 
+static void emit_be_Copy(ir_node const *const node) {
+    ir_node *const               op  = be_get_Copy_op(node);
+    arch_register_t const *const in  = arch_get_irn_register(op);
+    arch_register_t const *const out = arch_get_irn_register(node);
+    if (in == out)
+        return;
+
+    loongarch64_emitf(node, "ori\t%D0,\t%S0,\t0");
+}
+
 static void emit_be_IncSP(const ir_node *node) {
     int offset = be_get_IncSP_offset(node);
-    if (offset > 0) {
-        loongarch64_emitf(node, "addi.d\t%D0,\t%S0,\t%d", offset);
+    if (offset != 0) {
+        loongarch64_emitf(node, "addi.d\t%D0,\t%S0,\t%d", -offset);
     }
 }
 
@@ -146,6 +156,7 @@ static void loongarch64_register_emitters(void) {
     loongarch64_register_spec_emitters();
 
     /* custom emitters not provided by the spec */
+    be_set_emitter(op_be_Copy, emit_be_Copy);
     be_set_emitter(op_be_IncSP, emit_be_IncSP);
 }
 

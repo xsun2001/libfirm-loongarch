@@ -84,7 +84,6 @@ my $callOp = {
 
 # Some special nodes
 %nodes = (
-
     # Zero Extend
     zext_b => {
         irn_flags => ["rematerializable"],
@@ -158,7 +157,7 @@ my $callOp = {
         template  => $callOp,
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "bl\t%J\n",
+        emit      => "bl\t%G\n",
     },
     call_pointer => {
         template => $callOp,

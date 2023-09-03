@@ -112,15 +112,11 @@ static void loongarch64_assign_spill_slots(ir_graph *const irg) {
     be_free_frame_entity_coalescer(fec_env);
 }
 
-static ir_node *loongarch64_new_IncSP(ir_node *const block, ir_node *const sp, int const offset, unsigned const align) {
-    return be_new_IncSP(block, sp, offset, align);
-}
-
 static void loongarch64_introduce_prologue(ir_graph *const irg, unsigned const size) {
     ir_node *const start    = get_irg_start(irg);
     ir_node *const block    = get_nodes_block(start);
     ir_node *const start_sp = be_get_Start_proj(irg, &loongarch64_registers[REG_SP]);
-    ir_node *const inc_sp   = loongarch64_new_IncSP(block, start_sp, size, 0);
+    ir_node *const inc_sp   = be_new_IncSP(block, start_sp, size, 0);
     sched_add_after(start, inc_sp);
     edges_reroute_except(start_sp, inc_sp, inc_sp);
 }
@@ -128,7 +124,7 @@ static void loongarch64_introduce_prologue(ir_graph *const irg, unsigned const s
 static void loongarch64_introduce_epilogue(ir_node *const ret, unsigned const size) {
     ir_node *const block  = get_nodes_block(ret);
     ir_node *const ret_sp = get_irn_n(ret, n_loongarch64_return_stack);
-    ir_node *const inc_sp = loongarch64_new_IncSP(block, ret_sp, -(int)size, 0);
+    ir_node *const inc_sp = be_new_IncSP(block, ret_sp, -(int) size, 0);
     sched_add_before(ret, inc_sp);
     set_irn_n(ret, n_loongarch64_return_stack, inc_sp);
 }
@@ -166,11 +162,11 @@ static void loongarch64_sp_sim(ir_node *const node, stack_pointer_state_t *const
             ir_entity *const                    ent = imm->ent;
             if (ent && is_frame_type(get_entity_owner(ent))) {
                 imm->ent = NULL;
+                printf("%d %d %d\n", imm->val, state->offset, get_entity_offset(ent));
                 imm->val += state->offset + get_entity_offset(ent);
             }
             break;
         }
-
         default:
             break;
         }

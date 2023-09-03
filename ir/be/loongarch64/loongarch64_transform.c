@@ -243,40 +243,47 @@ TRANS_FUNC(Const) {
 
 // ------------------- Conversion -------------------
 
+// Convert `node` to `target` mode in 64-bits register.
+ir_node *convert_value(dbg_info *const dbgi, ir_node *const node, ir_mode *const target) {
+    ir_node *const new_op   = be_transform_node(node);
+    ir_node *const block    = get_nodes_block(new_op);
+    ir_mode *const mode     = get_irn_mode(node);
+    unsigned const o_bits   = get_mode_size_bits(mode);
+    bool           o_signed = mode_is_signed(mode);
+    unsigned const t_bits   = get_mode_size_bits(target);
+    bool           t_signed = mode_is_signed(target);
+    // only int
+    if (!mode_is_int(mode) || !mode_is_int(target)) {
+        TODO(node);
+    }
+    // unsigned int -> long
+    if (mode == mode_Iu && t_bits == 64) {
+        return new_bd_loongarch64_zext_w(dbgi, block, new_op);
+    }
+    // narrow to int/unsigned int
+    if (o_bits == 64 && t_bits == 32) {
+        return new_bd_loongarch64_sext_w(dbgi, block, new_op);
+    }
+    // narrow conversion
+    if (o_bits > t_bits || (o_bits == t_bits && o_signed != t_signed)) {
+        if (t_bits == 8) {
+            return (t_signed ? new_bd_loongarch64_sext_b : new_bd_loongarch64_zext_b)(dbgi, block, new_op);
+        } else if (t_bits == 16) {
+            return (t_signed ? new_bd_loongarch64_sext_h : new_bd_loongarch64_zext_h)(dbgi, block, new_op);
+        }
+    }
+    // Don't need to convert
+    return new_op;
+}
+
+ir_node *extend_value(ir_node *const node) { return convert_value(NULL, node, mode_Ls); }
+
 TRANS_FUNC(Conv) {
     ir_node *const  block = be_transform_nodes_block(node);
     dbg_info *const dbgi  = get_irn_dbg_info(node);
-
-    ir_node *const op     = get_Conv_op(node);
-    ir_node *const new_op = be_transform_node(op);
-
-    ir_mode *const mode      = get_irn_mode(node);
-    ir_mode *const op_mode   = get_irn_mode(op);
-    bool           is_signed = mode_is_signed(mode);
-
-    unsigned const bits    = get_mode_size_bits(mode);
-    unsigned const op_bits = get_mode_size_bits(op_mode);
-
-    if (bits <= op_bits) {
-        return new_op;
-    }
-
-    new_uniop_func cvt_func = NULL;
-    if (mode_is_int(mode) && mode_is_int(op_mode)) {
-        if (op_bits == 8) {
-            cvt_func = is_signed ? new_bd_loongarch64_sext_b : new_bd_loongarch64_zext_b;
-        } else if (op_bits == 16) {
-            cvt_func = is_signed ? new_bd_loongarch64_sext_h : new_bd_loongarch64_zext_h;
-        } else if (op_bits == 32) {
-            cvt_func = is_signed ? new_bd_loongarch64_sext_w : new_bd_loongarch64_zext_w;
-        }
-    }
-
-    if (cvt_func == NULL) {
-        TODO(node);
-    } else {
-        return cvt_func(dbgi, block, new_op);
-    }
+    ir_node *const  op    = get_Conv_op(node);
+    ir_mode *const  mode  = get_irn_mode(node);
+    return convert_value(dbgi, op, mode);
 }
 
 // ------------------- Memory -------------------
@@ -381,7 +388,8 @@ static unsigned const reg_results[] = {
 static unsigned const reg_callee_saves[] = {REG_S0, REG_S1, REG_S2, REG_S3, REG_S4, REG_S5, REG_S6, REG_S7, REG_S8};
 
 static unsigned const reg_caller_saves[] = {
-    REG_RA, REG_T0, REG_T1, REG_T2, REG_T3, REG_T4, REG_T5, REG_T6, REG_T7, REG_T8,
+    REG_RA, REG_T0, REG_T1, REG_T2, REG_T3, REG_T4, REG_T5, REG_T6, REG_T7,
+    REG_T8, REG_A0, REG_A1, REG_A2, REG_A3, REG_A4, REG_A5, REG_A6, REG_A7,
 };
 
 typedef struct reg_or_slot_t {
@@ -404,9 +412,6 @@ static void set_allocatable_regs(ir_graph *const irg) {
     struct obstack *obst   = &birg->obst;
     unsigned       *a_regs = rbitset_obstack_alloc(obst, N_LOONGARCH64_REGISTERS);
 
-    for (size_t r = 0, n = ARRAY_SIZE(reg_params); r < n; ++r) {
-        rbitset_set(a_regs, reg_params[r]);
-    }
     for (size_t r = 0, n = ARRAY_SIZE(reg_callee_saves); r < n; ++r) {
         rbitset_set(a_regs, reg_callee_saves[r]);
     }
@@ -430,11 +435,14 @@ static void setup_calling_convention(calling_convention_t *const cconv, ir_type 
                 panic("TODO");
             }
             if (i < n_max_gp_params) {
-                arr[i].reg = &loongarch64_registers[reg_params[i]];
+                arr[i].reg    = &loongarch64_registers[reg_params[i]];
+                arr[i].offset = 0;
+            } else {
+                arr[i].offset = (i - n_max_gp_params) * 8;
             }
-            arr[i].offset = i * 8;
         }
     }
+    cconv->n_params   = n_params;
     cconv->parameters = arr;
 
     size_t const n_result = get_method_n_ress(fun_type);
@@ -485,7 +493,87 @@ void layout_parameter_entities(calling_convention_t *const cconv, ir_graph *cons
     free(param_map);
 }
 
-TRANS_FUNC(Call) { TODO(node); }
+TRANS_FUNC(Call) {
+    ir_graph *const irg = get_irn_irg(node);
+
+    unsigned                          p        = n_loongarch64_call_first_argument;
+    unsigned const                    n_params = get_Call_n_params(node);
+    unsigned const                    n_ins    = p + 1 + n_params;
+    arch_register_req_t const **const reqs     = be_allocate_in_reqs(irg, n_ins);
+    ir_node                          *ins[n_ins];
+
+    // Confirm callee. Global function or function pointer.
+    ir_entity     *callee;
+    ir_node *const ptr = get_Call_ptr(node);
+    if (is_Address(ptr)) {
+        callee = get_Address_entity(ptr);
+    } else {
+        callee  = NULL;
+        ins[p]  = be_transform_node(ptr);
+        reqs[p] = &loongarch64_class_reg_req_gp;
+        ++p;
+    }
+
+    ir_type *const fun_type = get_Call_type(node);
+    record_returns_twice(irg, fun_type);
+
+    calling_convention_t cconv;
+    setup_calling_convention(&cconv, fun_type);
+
+    size_t   n_mem_param = cconv.n_params > ARRAY_SIZE(reg_params) ? cconv.n_params - ARRAY_SIZE(reg_params) : 0;
+    ir_node *mems[1 + n_mem_param];
+    unsigned m = 0;
+
+    ir_node *const mem = get_Call_mem(node);
+    mems[m++]          = be_transform_node(mem);
+
+    int const      frame_size = n_mem_param * 16;
+    ir_node *const block      = be_transform_nodes_block(node);
+    ir_node *const sp         = get_Start_sp(irg);
+    ir_node *const call_frame = be_new_IncSP(block, sp, frame_size, 0);
+
+    ins[n_loongarch64_call_stack]  = call_frame;
+    reqs[n_loongarch64_call_stack] = &loongarch64_single_reg_req_gp_sp;
+
+    dbg_info *const dbgi = get_irn_dbg_info(node);
+    for (size_t i = 0; i != n_params; ++i) {
+        ir_node *const arg = get_Call_param(node, i);
+        ir_node *const val = extend_value(arg);
+
+        reg_or_slot_t const *const param = &cconv.parameters[i];
+        if (param->reg) {
+            ins[p]  = val;
+            reqs[p] = param->reg->single_req;
+            ++p;
+        } else {
+            ir_node *const nomem = get_irg_no_mem(irg);
+            mems[m++]            = new_bd_loongarch64_st_d(dbgi, block, nomem, call_frame, val, NULL, param->offset);
+        }
+    }
+
+    free_calling_convention(&cconv);
+
+    ins[n_loongarch64_call_mem]  = be_make_Sync(block, m, mems);
+    reqs[n_loongarch64_call_mem] = arch_memory_req;
+
+    unsigned const n_res = pn_loongarch64_call_first_result + ARRAY_SIZE(reg_caller_saves);
+
+    ir_node *const call = callee ? new_bd_loongarch64_call(dbgi, block, p, ins, reqs, n_res, callee, 0)
+                                 : new_bd_loongarch64_call_pointer(dbgi, block, p, ins, reqs, n_res);
+
+    arch_set_irn_register_req_out(call, pn_loongarch64_call_M, arch_memory_req);
+    arch_copy_irn_out_info(call, pn_loongarch64_call_stack, sp);
+    for (size_t i = 0; i != ARRAY_SIZE(reg_caller_saves); ++i) {
+        arch_set_irn_register_req_out(call, pn_loongarch64_call_first_result + i,
+                                      loongarch64_registers[reg_caller_saves[i]].single_req);
+    }
+
+    ir_node *const call_stack = be_new_Proj(call, pn_loongarch64_call_stack);
+    ir_node *const new_stack  = be_new_IncSP(block, call_stack, -frame_size, 0);
+    be_stack_record_chain(&stack_env, call_frame, n_be_IncSP_pred, new_stack);
+
+    return call;
+}
 
 TRANS_FUNC(Return) {
     unsigned       p     = n_loongarch64_return_first_result;
@@ -616,20 +704,55 @@ TRANS_FUNC(Proj_Mod) {
     }
 }
 
-TRANS_FUNC(Proj_Proj) {
-    ir_node *pred      = get_Proj_pred(node);
-    ir_node *pred_pred = get_Proj_pred(pred);
-    if (is_Start(pred_pred)) {
-        if (get_Proj_num(pred) == pn_Start_T_args) {
-            // assume everything is passed in gp registers
-            unsigned arg_num = get_Proj_num(node);
-            if (arg_num >= ARRAY_SIZE(reg_params))
-                panic("more than 4 arguments not supported");
-            ir_graph *const irg = get_irn_irg(node);
-            return be_get_Start_proj(irg, &loongarch64_registers[reg_params[arg_num]]);
-        }
+TRANS_FUNC(Proj_Proj_Call) {
+    ir_node *const pred = get_Proj_pred(node);
+    assert(get_Proj_num(pred) == pn_Call_T_result);
+
+    ir_node *const ocall    = get_Proj_pred(pred);
+    ir_type *const fun_type = get_Call_type(ocall);
+
+    calling_convention_t cconv;
+    setup_calling_convention(&cconv, fun_type);
+
+    ir_node *const               call = be_transform_node(ocall);
+    unsigned const               num  = get_Proj_num(node);
+    arch_register_t const *const reg  = cconv.results[num].reg;
+    unsigned const               pos  = be_get_out_for_reg(call, reg);
+
+    free_calling_convention(&cconv);
+
+    return be_new_Proj(call, pos);
+}
+
+TRANS_FUNC(Proj_Proj_Start) {
+    assert(get_Proj_num(get_Proj_pred(node)) == pn_Start_T_args);
+
+    ir_graph *const      irg   = get_irn_irg(node);
+    unsigned const       num   = get_Proj_num(node);
+    reg_or_slot_t *const param = &cconv.parameters[num];
+    if (param->reg) {
+        return be_get_Start_proj(irg, param->reg);
+    } else {
+        dbg_info *const dbgi  = get_irn_dbg_info(node);
+        ir_node *const  block = be_transform_nodes_block(node);
+        ir_node *const  mem   = be_get_Start_mem(irg);
+        ir_node *const  base  = get_Start_sp(irg);
+        ir_node *const  load  = new_bd_loongarch64_ld_d(dbgi, block, mem, base, param->entity, 0);
+        return be_new_Proj(load, pn_loongarch64_ld_d_res);
     }
-    TODO(node);
+}
+
+TRANS_FUNC(Proj_Proj) {
+    ir_node *const pred      = get_Proj_pred(node);
+    ir_node *const pred_pred = get_Proj_pred(pred);
+    switch (get_irn_opcode(pred_pred)) {
+    case iro_Call:
+        return gen_Proj_Proj_Call(node);
+    case iro_Start:
+        return gen_Proj_Proj_Start(node);
+    default:
+        TODO(node);
+    }
 }
 
 TRANS_FUNC(Proj_Load) {

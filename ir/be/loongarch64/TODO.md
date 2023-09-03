@@ -8,22 +8,22 @@
   - [ ] Atomic, Barrier, Others...
 - [ ] IR Graph Transformation
   - [x] Arithmetic & Bit-shifting Operations: Add, And, Const, Conv, Div, Eor, Mulh, Mul, Minus, Mod, Not, Or, Shl, SHr, Shrs, Sub
-  - [ ] Memory Access Related: Address, Load, Member, Store
+  - [x] Memory Access Related: Address, Load, Member, Store
   - [ ] Conditional: Cmp, Cond, Mux
-  - [ ] Control Flow: Call, IJmp, Jmp, Return, Switch
+  - [x] Control Flow: Call, IJmp, Jmp, Return, Switch
   - [ ] Others: ASM, Builtin, Phi, Start, Unknown
-  - [ ] Projection
-- [ ] Instruction Emitter
-- [ ] Register Allocation
+  - [x] Projection
+-  Instruction Emitter
+- [x] Register Allocation
 
 ## Stage
 
 - [x] Compile basic arithemetic program (arithmetic)
 - [ ] Compile basic control flow program (conditional/compare/branch)
-- [ ] Compile program with global variables (load/store/memory access)
-- [ ] Compile multi-function program (call convention)
+- [x] Compile program with global variables (load/store/memory access)
+- [x] Compile multi-function program (call convention)
 - [ ] Compile with standard library (call convention)
-- [ ] Link & Assemble
+- [x] Link & Assemble
 
 ## Notes
 
