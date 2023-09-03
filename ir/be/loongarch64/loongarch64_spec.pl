@@ -164,6 +164,15 @@ my $callOp = {
         template => $callOp,
         emit     => "jirl\t$r1,\t%S2,\t0\n",
     },
+
+    # Load Address
+    load_address => {
+        irn_flags => ["rematerializable"],
+        out_reqs  => ["gp"],
+        attr_type => "loongarch64_immediate_attr_t",
+        attr      => "ir_entity *const ent, int64_t val",
+        emit      => "la.local\t%D0,\t%G",
+    }
 );
 
 # Generate instructions with post-fix

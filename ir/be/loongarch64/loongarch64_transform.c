@@ -61,6 +61,11 @@ static ir_node *transform_common_binop(ir_node *node, ir_mode *provide_mode, boo
     dbg_info *dbgi  = get_irn_dbg_info(node);
     unsigned  bits  = get_mode_size_bits(mode);
 
+    // 'mode-P' is pointer type, which is equal to 64-bit unsigned int.
+    if (mode == mode_P) {
+        mode = mode_Lu;
+    }
+
     if (mode_is_int(mode)) {
         // Const folding
         if (new_func_wi && new_func_di) {
@@ -162,17 +167,7 @@ static ir_node *get_Start_sp(ir_graph *const irg) { return be_get_Start_proj(irg
 
 // ------------------- Arithemtic -------------------
 
-TRANS_FUNC(Add) {
-    ir_node *const l = get_Add_left(node);
-    ir_node *const r = get_Add_right(node);
-    if (is_Address(l) && is_Const(r)) {
-        ir_entity *const entity = get_Address_entity(l);
-        int64_t          value  = get_Const_long(r);
-        return transform_const(node, entity, value);
-    }
-
-    return transform_common_binop(node, NULL, true, LA64_WD_INST(add), NULL, NULL, LA64_WD_INST(addi));
-}
+TRANS_FUNC(Add) { return transform_common_binop(node, NULL, true, LA64_WD_INST(add), NULL, NULL, LA64_WD_INST(addi)); }
 
 TRANS_FUNC(Sub) { return transform_common_binop(node, NULL, false, LA64_WD_INST(sub), NULL, NULL, NULL, NULL); }
 
@@ -340,9 +335,10 @@ TRANS_FUNC(Store) {
 }
 
 TRANS_FUNC(Address) {
+    dbg_info *const  dbgi   = get_irn_dbg_info(node);
+    ir_node *const   block  = be_transform_nodes_block(node);
     ir_entity *const entity = get_Address_entity(node);
-    // Or use `la.local`?
-    return transform_const(node, entity, 0);
+    return new_bd_loongarch64_load_address(dbgi, block, entity, 0);
 }
 
 TRANS_FUNC(Member) {

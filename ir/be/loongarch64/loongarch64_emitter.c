@@ -87,6 +87,17 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
             break;
         }
 
+        case 'G': {
+            loongarch64_immediate_attr_t const *const attr = get_loongarch64_immediate_attr_const(node);
+            ir_entity *const                          ent  = attr->ent;
+            if (ent) {
+                be_emit_irprintf("%s", get_entity_ld_name(ent));
+            } else {
+                panic("no entity for global address");
+            }
+            break;
+        }
+
         default:
         unknown:
             panic("unknown format conversion");
