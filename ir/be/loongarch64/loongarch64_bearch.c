@@ -37,6 +37,9 @@ static void loongarch64_select_instructions(ir_graph *irg)
 	loongarch64_transform_graph(irg);
 	be_timer_pop(T_CODEGEN);
 	be_dump(DUMP_BE, irg, "code-selection");
+	
+	place_code(irg);
+	be_dump(DUMP_BE, irg, "place");
 }
 
 static ir_node *loongarch64_new_spill(ir_node *value, ir_node *after)
@@ -124,7 +127,7 @@ static void loongarch64_lower_for_target(void)
 	be_after_irp_transform("lower-builtins");
 
 	/* lower compound param handling */
-	lower_calls_with_cmpounds(LF_RETURN_HIDDEN,
+	lower_calls_with_compounds(LF_RETURN_HIDDEN,
 				   lower_aggregates_as_pointers, NULL,
 				   lower_aggregates_as_pointers, NULL,
 				   reset_stateless_abi);
@@ -145,7 +148,7 @@ arch_isa_if_t const loongarch64_isa_if = {
 	.pointer_size          = 8,
 	.modulo_shift          = 32,
 	.big_endian            = false,
-	.po2_biggest_alignment = 3,
+	.po2_biggest_alignment = 4,
 	.pic_supported         = false,
 	.n_registers           = N_LOONGARCH64_REGISTERS,
 	.registers             = loongarch64_registers,

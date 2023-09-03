@@ -14,9 +14,10 @@
 
 void loongarch64_dump_node(FILE *F, const ir_node *n, dump_reason_t reason);
 
-void set_loongarch64_value(ir_node *const node, ir_entity *const entity,
-                        ir_tarval *const value);
+// void set_loongarch64_value(ir_node *const node, ir_entity *const entity, int64_t value);
 
 int loongarch64_attrs_equal(const ir_node *a, const ir_node *b);
+
+int loongarch64_immediate_attrs_equal(const ir_node *a, const ir_node *b);
 
 #endif
