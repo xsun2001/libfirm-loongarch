@@ -115,6 +115,10 @@ static ir_node *transform_const(ir_node *const node, ir_entity *const entity, ui
     ir_mode *const  mode  = get_irn_mode(node);
     unsigned        bits  = get_mode_size_bits(mode);
 
+    if (value == 0) {
+        ir_graph *const irg = get_irn_irg(node);
+        return be_get_Start_proj(irg, &loongarch64_registers[REG_ZERO]);
+    }
     if (bits == 32) {
         return new_bd_loongarch64_li_w(dbgi, block, entity, value);
     } else if (bits == 64) {

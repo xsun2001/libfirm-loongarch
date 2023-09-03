@@ -1,9 +1,9 @@
 # Loongarch64 LibFIRM TODO List
 
-- [ ] LA64 Spec File
+- [x] LA64 Spec File
   - [x] Arithmetic & Bit-shifting Operations
-  - [ ] Bit-manipulation Instructions (FIRM IR doesn't support those detailed bit-manipulation operations)
-  - [ ] Branch Instructions (Need more information about LA64 calling convention)
+  - [x] Bit-manipulation Instructions (FIRM IR doesn't support those detailed bit-manipulation operations)
+  - [x] Branch Instructions (Need more information about LA64 calling convention)
   - [x] Memory Access
   - [ ] Atomic, Barrier, Others...
 - [ ] IR Graph Transformation

@@ -28,8 +28,7 @@ static void loongarch64_emit_immediate(const ir_node *node) {
     int64_t                                   val  = attr->val;
     if (ent) {
         be_emit_irprintf("&%s", get_entity_ld_name(ent));
-        if (val)
-            be_emit_char('+');
+        be_emit_irprintf("%d", val);
     } else {
         be_emit_irprintf("%d", val);
     }
@@ -69,13 +68,22 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
             break;
         }
 
-        case 'I':
+        case 'I': {
             loongarch64_emit_immediate(node);
             break;
+        }
 
         case 'X': {
             int num = va_arg(ap, int);
             be_emit_irprintf("%X", num);
+            break;
+        }
+
+        case 'A': {
+            loongarch64_emit_source_register(node, 1);
+            be_emit_char(',');
+            be_emit_char('\t');
+            loongarch64_emit_immediate(node);
             break;
         }
 
@@ -93,17 +101,9 @@ static void emit_loongarch64_Jmp(const ir_node *node) { loongarch64_emitf(node, 
 
 static void emit_be_IncSP(const ir_node *node) {
     int offset = be_get_IncSP_offset(node);
-    if (offset == 0)
-        return;
-
-    /* downwards growing stack */
-    const char *op = "add";
-    if (offset < 0) {
-        op     = "sub";
-        offset = -offset;
+    if (offset > 0) {
+        loongarch64_emitf(node, "addi.d\t%D0,\t%S0,\t%d", offset);
     }
-
-    loongarch64_emitf(node, "%s %S0, %d, %D0", op, offset);
 }
 
 static void emit_Return(const ir_node *node) {
