@@ -56,6 +56,8 @@ loongarch64_attr_t *get_loongarch64_attr(ir_node *node) {
     return (loongarch64_attr_t *)get_irn_generic_attr(node);
 }
 
+int loongarch64_attrs_equal(const ir_node *a, const ir_node *b) { return 1; }
+
 const loongarch64_immediate_attr_t *get_loongarch64_immediate_attr_const(const ir_node *node) {
     assert(is_loongarch64_irn(node) && "need loongarch64 node to get attributes");
     return (const loongarch64_immediate_attr_t *)get_irn_generic_attr_const(node);
@@ -66,16 +68,24 @@ loongarch64_immediate_attr_t *get_loongarch64_immediate_attr(ir_node *node) {
     return (loongarch64_immediate_attr_t *)get_irn_generic_attr(node);
 }
 
-// void set_loongarch64_value(ir_node *const node, ir_entity *const entity, int64_t value) {
-//     loongarch64_attr_t *attr = get_loongarch64_attr(node);
-//     attr->entity = entity;
-//     attr->value = value;
-// }
-
-int loongarch64_attrs_equal(const ir_node *a, const ir_node *b) { return 1; }
-
 int loongarch64_immediate_attrs_equal(const ir_node *a, const ir_node *b) {
     const loongarch64_immediate_attr_t *attr_a = get_loongarch64_immediate_attr_const(a);
     const loongarch64_immediate_attr_t *attr_b = get_loongarch64_immediate_attr_const(b);
     return attr_a->ent == attr_b->ent && attr_a->val == attr_b->val;
+}
+
+const loongarch64_cond_attr_t *get_loongarch64_cond_attr_const(const ir_node *node) {
+    assert(is_loongarch64_irn(node) && "need loongarch64 node to get attributes");
+    return (const loongarch64_cond_attr_t *)get_irn_generic_attr_const(node);
+}
+
+loongarch64_cond_attr_t *get_loongarch64_cond_attr(ir_node *node) {
+    assert(is_loongarch64_irn(node) && "need loongarch64 node to get attributes");
+    return (loongarch64_cond_attr_t *)get_irn_generic_attr(node);
+}
+
+int loongarch64_cond_attrs_equal(const ir_node *a, const ir_node *b) {
+    const loongarch64_cond_attr_t *attr_a = get_loongarch64_cond_attr_const(a);
+    const loongarch64_cond_attr_t *attr_b = get_loongarch64_cond_attr_const(b);
+    return attr_a->cond == attr_b->cond;
 }

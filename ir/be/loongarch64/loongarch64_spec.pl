@@ -72,6 +72,7 @@ $mode_fp = "mode_F";     # mode used by floatingpoint registers
 %init_attr = (
     loongarch64_attr_t           => "",
     loongarch64_immediate_attr_t => "attr->ent = ent;\n\tattr->val = val;",
+    loongarch64_cond_attr_t      => "attr->cond = cond;",
 );
 
 my $callOp = {
@@ -84,6 +85,7 @@ my $callOp = {
 
 # Some special nodes
 %nodes = (
+
     # Zero Extend
     zext_b => {
         irn_flags => ["rematerializable"],
@@ -152,7 +154,7 @@ my $callOp = {
         emit     => "jr\t%S2",
     },
 
-	# Call
+    # Call
     call => {
         template  => $callOp,
         attr_type => "loongarch64_immediate_attr_t",
@@ -171,6 +173,38 @@ my $callOp = {
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
         emit      => "la.local\t%D0,\t%G",
+    },
+
+    # Branch
+    b => {
+        state     => "pinned",
+        irn_flags => [ "simple_jump", "fallthrough" ],
+        op_flags  => ["cfopcode"],
+        out_reqs  => ["exec"],
+    },
+    b_cond => {
+        state     => "pinned",
+        irn_flags => ["fallthrough"],
+        op_flags  => [ "cfopcode", "forking" ],
+        in_reqs   => [ "gp",       "gp" ],
+        ins       => [ "left",     "right" ],
+        out_reqs  => [ "exec",     "exec" ],
+        outs      => [ "false",    "true" ],
+        attr_type => "loongarch64_cond_attr_t",
+        attr      => "loongarch64_cond_t const cond",
+    },
+
+    # Mux
+    # Node: need to copy %S1 because %S1 is changed
+    mux => {
+        irn_flags => ["rematerializable"],
+        in_reqs   => [ "gp",  "gp",    "gp" ],
+        ins       => [ "sel", "f_val", "t_val" ],
+        out_reqs  => ["gp"],
+        emit      =>
+          "maskeqz\t%S1,\t%S1,\t%S0\n"   # if(%S0 == 0) %S1 = %S1 else %S1 = 0
+          . "masknez\t%D0,\t%S2,\t%S0\n" # if(%S0 == 0) %D0 = 0   else %D0 = %S2
+          . "or     \t%D0,\t%D0,\t%S1",  # %D0 = %D0 | %S1
     }
 );
 
@@ -182,9 +216,9 @@ my @rc_op_wd = ( "addi", "slli", "srli", "srai", "rotri", );
 
 my @rr_op_wdu = ( "mulh", "div", "mod", );
 
-my @rr_op = ( "and", "or", "nor", "xor", "andn", "orn", );
+my @rr_op = ( "and", "or", "nor", "xor", "andn", "orn", "slt", "sltu" );
 
-my @rc_op = ( "andi", "ori", "xori", );
+my @rc_op = ( "andi", "ori", "xori", "slti", "sltui" );
 
 sub add_rr_op_with_postfix {
     my $op      = shift;

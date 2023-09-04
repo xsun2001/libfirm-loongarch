@@ -114,6 +114,10 @@ static ir_node *transform_common_binop(ir_node *node, ir_mode *provide_mode, boo
         new_bd_loongarch64_##name##_du
 #define LA64_WD_SAME_INST(name) new_bd_loongarch64_##name, new_bd_loongarch64_##name
 
+static ir_node *get_zero_register(ir_node *const node) {
+    return be_get_Start_proj(get_irn_irg(node), &loongarch64_registers[REG_ZERO]);
+}
+
 static ir_node *transform_const(ir_node *const node, ir_entity *const entity, uint64_t value) {
     ir_node *const  block = be_transform_nodes_block(node);
     dbg_info *const dbgi  = get_irn_dbg_info(node);
@@ -121,8 +125,7 @@ static ir_node *transform_const(ir_node *const node, ir_entity *const entity, ui
     unsigned        bits  = get_mode_size_bits(mode);
 
     if (value == 0) {
-        ir_graph *const irg = get_irn_irg(node);
-        return be_get_Start_proj(irg, &loongarch64_registers[REG_ZERO]);
+        return get_zero_register(node);
     }
     if (bits == 32) {
         return new_bd_loongarch64_li_w(dbgi, block, entity, value);
@@ -360,17 +363,140 @@ TRANS_FUNC(Member) {
 
 // ------------------- Compare or Conditional -------------------
 
-TRANS_FUNC(Cmp) { TODO(node); }
+TRANS_FUNC(Cmp) {
+    ir_node       *l    = get_Cmp_left(node);
+    ir_node       *r    = get_Cmp_right(node);
+    ir_mode *const mode = get_irn_mode(l);
+    if (be_mode_needs_gp_reg(mode)) {
+        ir_relation const rel = get_Cmp_relation(node) & ir_relation_less_equal_greater;
+        switch (rel) {
+        case ir_relation_greater:
+        case ir_relation_less_equal: {
+            ir_node *const t = l;
+            l                = r;
+            r                = t;
+        } /* FALLTHROUGH */
+        case ir_relation_greater_equal:
+        case ir_relation_less: {
+            dbg_info *const dbgi  = get_irn_dbg_info(node);
+            ir_node *const  block = be_transform_nodes_block(node);
+            ir_node *const  new_l = extend_value(l);
+            ir_node        *cmp   = NULL;
+            if (is_valid_si12(r)) {
+                if (mode_is_signed(mode)) {
+                    cmp = new_bd_loongarch64_slti(dbgi, block, new_l, NULL, get_Const_long(r));
+                } else {
+                    cmp = new_bd_loongarch64_sltui(dbgi, block, new_l, NULL, get_Const_long(r));
+                }
+            } else {
+                ir_node *const new_r = extend_value(r);
+                if (mode_is_signed(mode)) {
+                    cmp = new_bd_loongarch64_slt(dbgi, block, new_l, new_r);
+                } else {
+                    cmp = new_bd_loongarch64_sltu(dbgi, block, new_l, new_r);
+                }
+            }
+            if (rel & ir_relation_equal) {
+                ir_node * xor = new_bd_loongarch64_xori(dbgi, block, cmp, NULL, 1);
+                ir_node  *and = new_bd_loongarch64_andi(dbgi, block, xor, NULL, 1);
+                return and;
+            }
+            return cmp;
+        }
 
-TRANS_FUNC(Cond) { TODO(node); }
+        default:
+            TODO(node);
+        }
+    }
+    TODO(node);
+}
 
-TRANS_FUNC(Mux) { TODO(node); }
+TRANS_FUNC(Cond) {
+    ir_node *const     sel   = get_Cond_selector(node);
+    dbg_info *const    dbgi  = get_irn_dbg_info(node);
+    ir_node *const     block = be_transform_nodes_block(node);
+    ir_relation const  rel   = get_Cmp_relation(sel) & ir_relation_less_equal_greater;
+    ir_node *const     l     = get_Cmp_left(sel);
+    ir_node *const     r     = get_Cmp_right(sel);
+    ir_mode *const     mode  = get_irn_mode(l);
+    loongarch64_cond_t cond  = loongarch64_invalid;
+
+    if (is_Cmp(sel)) {
+        if (be_mode_needs_gp_reg(mode)) {
+            // r == 0
+            if (is_irn_null(r)) {
+                if (rel == ir_relation_equal) {
+                    ir_node *const new_l = extend_value(l);
+                    return new_bd_loongarch64_b_cond(dbgi, block, new_l, get_zero_register(node), loongarch64_beqz);
+                } else if (rel == ir_relation_less_greater) {
+                    ir_node *const new_l = extend_value(l);
+                    return new_bd_loongarch64_b_cond(dbgi, block, new_l, get_zero_register(node), loongarch64_bnez);
+                }
+            }
+            // Common compare
+            ir_node *const new_l     = extend_value(l);
+            ir_node *const new_r     = extend_value(r);
+            bool           need_swap = false;
+            switch (rel) {
+            case ir_relation_equal: {
+                cond = loongarch64_beq;
+                break;
+            }
+            case ir_relation_less_greater: {
+                cond = loongarch64_bne;
+                break;
+            }
+            case ir_relation_greater: {
+                cond      = mode_is_signed(mode) ? loongarch64_blt : loongarch64_bltu;
+                need_swap = true;
+                break;
+            }
+            case ir_relation_greater_equal: {
+                cond = mode_is_signed(mode) ? loongarch64_bge : loongarch64_bgeu;
+                break;
+            }
+            case ir_relation_less: {
+                cond = mode_is_signed(mode) ? loongarch64_blt : loongarch64_bltu;
+                break;
+            }
+            case ir_relation_less_equal: {
+                cond      = mode_is_signed(mode) ? loongarch64_bge : loongarch64_bgeu;
+                need_swap = true;
+                break;
+            }
+            default: {
+                TODO(node);
+            }
+            }
+            if (cond == loongarch64_invalid) {
+                TODO(node);
+            }
+            return need_swap ? new_bd_loongarch64_b_cond(dbgi, block, new_r, new_l, cond)
+                             : new_bd_loongarch64_b_cond(dbgi, block, new_l, new_r, cond);
+        }
+    }
+    TODO(node);
+}
+
+TRANS_FUNC(Mux) {
+    dbg_info *const dbgi   = get_irn_dbg_info(node);
+    ir_node *const  block  = be_transform_nodes_block(node);
+    ir_node *const  sel    = be_transform_node(get_Mux_sel(node));
+    ir_node *const  f_val  = be_transform_node(get_Mux_false(node));
+    ir_node *const  f_copy = be_new_Copy(block, f_val);
+    ir_node *const  t_val  = be_transform_node(get_Mux_true(node));
+    return new_bd_loongarch64_mux(dbgi, block, sel, f_copy, t_val);
+}
 
 // ------------------- Control Flow -------------------
 
 TRANS_FUNC(IJmp) { TODO(node); }
 
-TRANS_FUNC(Jmp) { TODO(node); }
+TRANS_FUNC(Jmp) {
+    dbg_info *const dbgi      = get_irn_dbg_info(node);
+    ir_node *const  new_block = be_transform_nodes_block(node);
+    return new_bd_loongarch64_b(dbgi, new_block);
+}
 
 TRANS_FUNC(Switch) { TODO(node); }
 

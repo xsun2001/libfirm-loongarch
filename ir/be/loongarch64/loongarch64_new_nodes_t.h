@@ -20,4 +20,6 @@ int loongarch64_attrs_equal(const ir_node *a, const ir_node *b);
 
 int loongarch64_immediate_attrs_equal(const ir_node *a, const ir_node *b);
 
+int loongarch64_cond_attrs_equal(const ir_node *a, const ir_node *b);
+
 #endif

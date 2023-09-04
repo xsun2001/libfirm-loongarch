@@ -9,8 +9,10 @@
  */
 #include "loongarch64_emitter.h"
 
+#include "be_t.h"
 #include "bearch.h"
 #include "beblocksched.h"
+#include "bediagnostic.h"
 #include "beemithlp.h"
 #include "beemitter.h"
 #include "begnuas.h"
@@ -98,6 +100,12 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
             break;
         }
 
+        case 'B': {
+            loongarch64_cond_t const cond = va_arg(ap, loongarch64_cond_t);
+            be_emit_string(loongarch64_cond_inst_name(cond));
+            break;
+        }
+
         default:
         unknown:
             panic("unknown format conversion");
@@ -105,10 +113,21 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
     }
 }
 
-/**
- * Emits code for a unconditional jump.
- */
-static void emit_loongarch64_Jmp(const ir_node *node) { loongarch64_emitf(node, "jmp %L", node); }
+static void emit_jmp(ir_node const *const node, ir_node const *const target) {
+    BE_EMIT_JMP(loongarch64, node, "b", target) { loongarch64_emitf(NULL, "nop"); }
+}
+
+static void emit_loongarch64_b(const ir_node *node) { emit_jmp(node, node); }
+
+static void emit_loongarch64_b_cond(const ir_node *node) {
+    loongarch64_cond_t const     cond  = get_loongarch64_cond_attr_const(node)->cond;
+    be_cond_branch_projs_t const projs = be_get_cond_branch_projs(node);
+    char const *const            fmt =
+        cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B\t%S0,\t%L" : "%B\t%S0,\t%S1,\t%L";
+
+    loongarch64_emitf(node, fmt, cond, projs.t);
+    emit_jmp(node, projs.f);
+}
 
 static void emit_be_Copy(ir_node const *const node) {
     ir_node *const               op  = be_get_Copy_op(node);
@@ -127,37 +146,15 @@ static void emit_be_IncSP(const ir_node *node) {
     }
 }
 
-static void emit_Return(const ir_node *node) {
-    ir_graph *irg        = get_irn_irg(node);
-    ir_type  *frame_type = get_irg_frame_type(irg);
-    unsigned  size       = get_type_size(frame_type);
-
-    /* emit function epilog here */
-
-    /* deallocate stackframe */
-    if (size > 0) {
-        loongarch64_emitf(node, "add %%sp, %u, %%sp", size);
-    }
-
-    /* return */
-    unsigned const    n_res = get_irn_arity(node) - n_loongarch64_return_first_result;
-    char const *const fmt   = n_res == 0 ? "ret" : n_res == 1 ? "ret %S2" : "ret %S2, ...";
-    loongarch64_emitf(node, fmt);
-}
-
-/**
- * Enters the emitter functions for handled nodes into the generic
- * pointer of an opcode.
- */
 static void loongarch64_register_emitters(void) {
     be_init_emitters();
-
-    /* register all emitter functions defined in spec */
     loongarch64_register_spec_emitters();
 
-    /* custom emitters not provided by the spec */
     be_set_emitter(op_be_Copy, emit_be_Copy);
     be_set_emitter(op_be_IncSP, emit_be_IncSP);
+
+    be_set_emitter(op_loongarch64_b, emit_loongarch64_b);
+    be_set_emitter(op_loongarch64_b_cond, emit_loongarch64_b_cond);
 }
 
 /**

@@ -162,7 +162,6 @@ static void loongarch64_sp_sim(ir_node *const node, stack_pointer_state_t *const
             ir_entity *const                    ent = imm->ent;
             if (ent && is_frame_type(get_entity_owner(ent))) {
                 imm->ent = NULL;
-                printf("%d %d %d\n", imm->val, state->offset, get_entity_offset(ent));
                 imm->val += state->offset + get_entity_offset(ent);
             }
             break;
