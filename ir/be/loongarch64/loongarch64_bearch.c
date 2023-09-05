@@ -250,13 +250,14 @@ static void loongarch64_lower_for_target(void) {
     be_after_irp_transform("lower-calls");
 
     foreach_irp_irg(i, irg) {
-        lower_CopyB(irg, 16, 17, false);
+        lower_CopyB(irg, 64, 65, false);
         be_after_transform(irg, "lower-copyb");
     }
 
     ir_mode *const mode_gp = loongarch64_reg_classes[CLASS_loongarch64_gp].mode;
 	foreach_irp_irg(i, irg) {
-		lower_switch(irg, 4, 256, mode_gp);
+        // Lower all switch to if-else chain
+		lower_switch(irg, 4, 0, mode_gp);
 		be_after_transform(irg, "lower-switch");
 	}
 

@@ -54,3 +54,11 @@ The test cases include:
 11. `028.c`: Dijkstra algorithm.
 12. `029.c`: Matrix multiplication.
 13. `030.c`-`032.c`: Link to standard library. `scanf` `printf` `malloc` `free`
+
+## What features are not supported?
+
+1. Float point operations
+2. Variable length array (VLA)
+3. Variadic arguments
+4. Inline assembly
+5. GCC builtins
