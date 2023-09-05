@@ -127,7 +127,7 @@ static ir_node *transform_const(ir_node *const node, ir_entity *const entity, ui
     if (value == 0) {
         return get_zero_register(node);
     }
-    if (bits == 32) {
+    if (bits <= 32) {
         return new_bd_loongarch64_li_w(dbgi, block, entity, value);
     } else if (bits == 64) {
         return new_bd_loongarch64_li_d(dbgi, block, entity, value);
