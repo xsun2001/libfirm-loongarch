@@ -19,6 +19,7 @@
 #include "benode.h"
 #include "besched.h"
 #include "gen_loongarch64_emitter.h"
+#include "gen_loongarch64_regalloc_if.h"
 #include "irgwalk.h"
 #include "loongarch64_new_nodes.h"
 #include "panic.h"
@@ -93,7 +94,7 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
             loongarch64_immediate_attr_t const *const attr = get_loongarch64_immediate_attr_const(node);
             ir_entity *const                          ent  = attr->ent;
             if (ent) {
-                be_emit_irprintf("%s", get_entity_ld_name(ent));
+                be_gas_emit_entity(ent);
             } else {
                 panic("no entity for global address");
             }
@@ -125,8 +126,12 @@ static void emit_loongarch64_b_cond(const ir_node *node) {
     char const *const            fmt =
         cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B\t%S0,\t%L" : "%B\t%S0,\t%S1,\t%L";
 
-    loongarch64_emitf(node, fmt, cond, projs.t);
-    emit_jmp(node, projs.f);
+    if (be_is_fallthrough(projs.t)) {
+        loongarch64_emitf(node, fmt, loongarch64_negate_cond(cond), projs.f);
+    } else {
+        loongarch64_emitf(node, fmt, cond, projs.t);
+        emit_jmp(node, projs.f);
+    }
 }
 
 static void emit_be_Copy(ir_node const *const node) {
@@ -146,12 +151,24 @@ static void emit_be_IncSP(const ir_node *node) {
     }
 }
 
+static void emit_be_Perm(ir_node const *const node) {
+    arch_register_t const *const out = arch_get_irn_register_out(node, 0);
+    if (out->cls == &loongarch64_reg_classes[CLASS_loongarch64_gp]) {
+        loongarch64_emitf(node, "xor\t%D0,\t%D0,\t%D1\n"
+                                "xor\t%D1,\t%D0,\t%D1\n"
+                                "xor\t%D0,\t%D0,\t%D1");
+    } else {
+        panic("unexpected register class");
+    }
+}
+
 static void loongarch64_register_emitters(void) {
     be_init_emitters();
     loongarch64_register_spec_emitters();
 
     be_set_emitter(op_be_Copy, emit_be_Copy);
     be_set_emitter(op_be_IncSP, emit_be_IncSP);
+    be_set_emitter(op_be_Perm, emit_be_Perm);
 
     be_set_emitter(op_loongarch64_b, emit_loongarch64_b);
     be_set_emitter(op_loongarch64_b_cond, emit_loongarch64_b_cond);

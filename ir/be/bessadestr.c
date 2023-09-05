@@ -54,10 +54,10 @@ static void impl_parcopy(const arch_register_class_t *cls,
 	 *       recording restore copies (and inserting them later). */
 	for (unsigned to_reg = 0; to_reg < n_regs; ++to_reg) {
 		const unsigned from_reg    = parcopy[to_reg];
-		unsigned       from_n_used = n_used[from_reg];
-
 		if (from_reg == n_regs)
 			continue;
+
+		unsigned       from_n_used = n_used[from_reg];
 
 		/* Decide if the current edge should be kept or not.
 		 * We keep an edge if it is a self-loop or if it is the last outgoing

@@ -250,11 +250,14 @@ TRANS_FUNC(Const) {
 ir_node *convert_value(dbg_info *const dbgi, ir_node *const node, ir_mode *const target) {
     ir_node *const new_op   = be_transform_node(node);
     ir_node *const block    = get_nodes_block(new_op);
-    ir_mode *const mode     = get_irn_mode(node);
+    ir_mode       *mode     = get_irn_mode(node);
     unsigned const o_bits   = get_mode_size_bits(mode);
     bool           o_signed = mode_is_signed(mode);
     unsigned const t_bits   = get_mode_size_bits(target);
     bool           t_signed = mode_is_signed(target);
+    if (mode == mode_P) {
+        mode = mode_Ls;
+    }
     // only int
     if (!mode_is_int(mode) || !mode_is_int(target)) {
         TODO(node);

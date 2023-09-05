@@ -40,6 +40,11 @@ typedef enum loongarch64_cond_t {
     loongarch64_invalid,
 } loongarch64_cond_t;
 
+static inline loongarch64_cond_t loongarch64_negate_cond(loongarch64_cond_t const c) {
+    // Flip the lowest bit
+    return (loongarch64_cond_t)(c ^ 1U);
+}
+
 static char *loongarch64_cond_inst_name(loongarch64_cond_t cond) {
     switch (cond) {
     case loongarch64_beq:

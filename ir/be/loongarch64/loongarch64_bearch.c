@@ -19,10 +19,12 @@
 #include "betranshlp.h"
 #include "debug.h"
 #include "gen_loongarch64_regalloc_if.h"
+#include "irarch.h"
 #include "iredges_t.h"
 #include "irgwalk.h"
 #include "irprog_t.h"
 #include "isas.h"
+#include "lowering.h"
 #include "loongarch64_emitter.h"
 #include "loongarch64_new_nodes.h"
 #include "loongarch64_transform.h"
@@ -124,7 +126,7 @@ static void loongarch64_introduce_prologue(ir_graph *const irg, unsigned const s
 static void loongarch64_introduce_epilogue(ir_node *const ret, unsigned const size) {
     ir_node *const block  = get_nodes_block(ret);
     ir_node *const ret_sp = get_irn_n(ret, n_loongarch64_return_stack);
-    ir_node *const inc_sp = be_new_IncSP(block, ret_sp, -(int) size, 0);
+    ir_node *const inc_sp = be_new_IncSP(block, ret_sp, -(int)size, 0);
     sched_add_before(ret, inc_sp);
     set_irn_n(ret, n_loongarch64_return_stack, inc_sp);
 }
@@ -146,7 +148,7 @@ static void loongarch64_introduce_prologue_epilogue(ir_graph *const irg) {
 static void loongarch64_sp_sim(ir_node *const node, stack_pointer_state_t *const state) {
     if (is_loongarch64_irn(node)) {
         switch ((loongarch64_opcodes)get_loongarch64_irn_opcode(node)) {
-        case iro_loongarch64_addu16i_d:
+        case iro_loongarch64_addi_d:
         case iro_loongarch64_ld_d:
         case iro_loongarch64_ld_w:
         case iro_loongarch64_ld_wu:
@@ -226,14 +228,40 @@ static void loongarch64_init(void) {
 
 static void loongarch64_finish(void) { loongarch64_free_opcodes(); }
 
-static void loongarch64_lower_for_target(void) {
-    lower_builtins(0, NULL, NULL);
-    be_after_irp_transform("lower-builtins");
+static ir_settings_arch_dep_t const loongarch64_arch_dep = {
+    .replace_muls         = true,
+    .replace_divs         = true,
+    .replace_mods         = true,
+    .allow_mulhs          = true,
+    .allow_mulhu          = true,
+    .also_use_subs        = true,
+    .maximum_shifts       = 4,
+    .highest_shift_amount = 63,
+    .evaluate             = NULL,
+    .max_bits_for_mulh    = 64,
+};
 
-    /* lower compound param handling */
+static void loongarch64_lower_for_target(void) {
+    ir_arch_lower(&loongarch64_arch_dep);
+    be_after_irp_transform("lower-arch-dep");
+
     lower_calls_with_compounds(LF_RETURN_HIDDEN, lower_aggregates_as_pointers, NULL, lower_aggregates_as_pointers, NULL,
                                reset_stateless_abi);
     be_after_irp_transform("lower-calls");
+
+    foreach_irp_irg(i, irg) {
+        lower_CopyB(irg, 16, 17, false);
+        be_after_transform(irg, "lower-copyb");
+    }
+
+    ir_mode *const mode_gp = loongarch64_reg_classes[CLASS_loongarch64_gp].mode;
+	foreach_irp_irg(i, irg) {
+		lower_switch(irg, 4, 256, mode_gp);
+		be_after_transform(irg, "lower-switch");
+	}
+
+    // lower_builtins(0, NULL, NULL);
+    // be_after_irp_transform("lower-builtins");
 }
 
 static unsigned loongarch64_get_op_estimated_cost(const ir_node *node) { return 1; }
