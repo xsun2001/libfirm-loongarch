@@ -6,23 +6,25 @@
   - [x] Branch Instructions (Need more information about LA64 calling convention)
   - [x] Memory Access
   - [ ] Atomic, Barrier, Others...
-- [ ] IR Graph Transformation
+- [x] IR Graph Transformation
   - [x] Arithmetic & Bit-shifting Operations: Add, And, Const, Conv, Div, Eor, Mulh, Mul, Minus, Mod, Not, Or, Shl, SHr, Shrs, Sub
   - [x] Memory Access Related: Address, Load, Member, Store
-  - [ ] Conditional: Cmp, Cond, Mux
+  - [x] Conditional: Cmp, Cond, Mux
   - [x] Control Flow: Call, IJmp, Jmp, Return, Switch
-  - [ ] Others: ASM, Builtin, Phi, Start, Unknown
+  - [x] Others: Phi, Start, Unknown
+  - [ ] ASM
+  - [ ] Builtin
   - [x] Projection
--  Instruction Emitter
+- [x] Instruction Emitter
 - [x] Register Allocation
 
 ## Stage
 
 - [x] Compile basic arithemetic program (arithmetic)
-- [ ] Compile basic control flow program (conditional/compare/branch)
+- [x] Compile basic control flow program (conditional/compare/branch)
 - [x] Compile program with global variables (load/store/memory access)
 - [x] Compile multi-function program (call convention)
-- [ ] Compile with standard library (call convention)
+- [x] Compile with standard library (call convention)
 - [x] Link & Assemble
 
 ## Notes

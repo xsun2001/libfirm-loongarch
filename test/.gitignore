@@ -1,0 +1,6 @@
+# Ignore all directories
+*/
+# Ignore all binary fines
+*.s
+*.out
+*.o
