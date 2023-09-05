@@ -85,7 +85,7 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
         case 'A': {
             loongarch64_emit_source_register(node, 1);
             be_emit_char(',');
-            be_emit_char('\t');
+            be_emit_char(' ');
             loongarch64_emit_immediate(node);
             break;
         }
@@ -124,7 +124,7 @@ static void emit_loongarch64_b_cond(const ir_node *node) {
     loongarch64_cond_t const     cond  = get_loongarch64_cond_attr_const(node)->cond;
     be_cond_branch_projs_t const projs = be_get_cond_branch_projs(node);
     char const *const            fmt =
-        cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B\t%S0,\t%L" : "%B\t%S0,\t%S1,\t%L";
+        cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B %S0, %L" : "%B %S0, %S1, %L";
 
     if (be_is_fallthrough(projs.t)) {
         loongarch64_emitf(node, fmt, loongarch64_negate_cond(cond), projs.f);
@@ -141,22 +141,22 @@ static void emit_be_Copy(ir_node const *const node) {
     if (in == out)
         return;
 
-    loongarch64_emitf(node, "ori\t%D0,\t%S0,\t0");
+    loongarch64_emitf(node, "ori %D0, %S0, 0");
 }
 
 static void emit_be_IncSP(const ir_node *node) {
     int offset = be_get_IncSP_offset(node);
     if (offset != 0) {
-        loongarch64_emitf(node, "addi.d\t%D0,\t%S0,\t%d", -offset);
+        loongarch64_emitf(node, "addi.d %D0, %S0, %d", -offset);
     }
 }
 
 static void emit_be_Perm(ir_node const *const node) {
     arch_register_t const *const out = arch_get_irn_register_out(node, 0);
     if (out->cls == &loongarch64_reg_classes[CLASS_loongarch64_gp]) {
-        loongarch64_emitf(node, "xor\t%D0,\t%D0,\t%D1\n"
-                                "xor\t%D1,\t%D0,\t%D1\n"
-                                "xor\t%D0,\t%D0,\t%D1");
+        loongarch64_emitf(node, "xor %D0, %D0, %D1\n"
+                                "xor %D1, %D0, %D1\n"
+                                "xor %D0, %D0, %D1");
     } else {
         panic("unexpected register class");
     }

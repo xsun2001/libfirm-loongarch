@@ -91,19 +91,19 @@ my $callOp = {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "bstrpick.d\t%D0,\t%S0,\t7,\t0",
+        emit      => "bstrpick.d %D0, %S0, 7, 0",
     },
     zext_h => {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "bstrpick.d\t%D0,\t%S0,\t15,\t0",
+        emit      => "bstrpick.d %D0, %S0, 15, 0",
     },
     zext_w => {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "bstrpick.d\t%D0,\t%S0,\t31,\t0",
+        emit      => "bstrpick.d %D0, %S0, 31, 0",
     },
 
     # Signed Extend
@@ -111,19 +111,19 @@ my $callOp = {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "ext.w.b\t%D0,\t%S0",
+        emit      => "ext.w.b %D0, %S0",
     },
     sext_h => {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "ext.w.h\t%D0,\t%S0",
+        emit      => "ext.w.h %D0, %S0",
     },
     sext_w => {
         irn_flags => ["rematerializable"],
         in_reqs   => ["gp"],
         out_reqs  => ["gp"],
-        emit      => "slli.w\t%D0,\t%S0,\t0",
+        emit      => "slli.w %D0, %S0, 0",
     },
 
     # Load Immediate
@@ -133,7 +133,7 @@ my $callOp = {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "li.w\t%D0,\t%I",
+        emit      => "li.w %D0, %I",
     },
     li_d => {
         irn_flags => ["rematerializable"],
@@ -141,7 +141,7 @@ my $callOp = {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "li.d\t%D0,\t%I",
+        emit      => "li.d %D0, %I",
     },
 
     # Return
@@ -151,7 +151,7 @@ my $callOp = {
         in_reqs  => "...",
         out_reqs => ["exec"],
         ins      => [ "mem", "stack", "addr", "first_result" ],
-        emit     => "jr\t%S2",
+        emit     => "jr %S2",
     },
 
     # Call
@@ -159,11 +159,11 @@ my $callOp = {
         template  => $callOp,
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "bl\t%G\n",
+        emit      => "bl %G\n",
     },
     call_pointer => {
         template => $callOp,
-        emit     => "jirl\t$r1,\t%S2,\t0\n",
+        emit     => "jirl $r1, %S2, 0\n",
     },
 
     # Load Address
@@ -172,7 +172,7 @@ my $callOp = {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "la.local\t%D0,\t%G",
+        emit      => "la.local %D0, %G",
     },
 
     # Branch
@@ -202,9 +202,9 @@ my $callOp = {
         ins       => [ "sel", "f_val", "t_val" ],
         out_reqs  => ["gp"],
         emit      =>
-          "maskeqz\t%S1,\t%S1,\t%S0\n"   # if(%S0 == 0) %S1 = %S1 else %S1 = 0
-          . "masknez\t%D0,\t%S2,\t%S0\n" # if(%S0 == 0) %D0 = 0   else %D0 = %S2
-          . "or     \t%D0,\t%D0,\t%S1",  # %D0 = %D0 | %S1
+          "maskeqz %S1, %S1, %S0\n"   # if(%S0 == 0) %S1 = %S1 else %S1 = 0
+          . "masknez %D0, %S2, %S0\n" # if(%S0 == 0) %D0 = 0   else %D0 = %S2
+          . "or      %D0, %D0, %S1",  # %D0 = %D0 | %S1
     }
 );
 
@@ -227,7 +227,7 @@ sub add_rr_op_with_postfix {
         irn_flags => ["rematerializable"],
         in_reqs   => [ "gp", "gp" ],
         out_reqs  => ["gp"],
-        emit      => "${op}.${postfix}\t%D0,\t%S0,\t%S1",
+        emit      => "${op}.${postfix} %D0, %S0, %S1",
     };
 }
 
@@ -252,7 +252,7 @@ sub add_rc_op_with_postfix {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "${op}.${postfix}\t%D0,\t%S0,\t%I",
+        emit      => "${op}.${postfix} %D0, %S0, %I",
     };
 }
 
@@ -269,7 +269,7 @@ sub add_rr_op {
         irn_flags => ["rematerializable"],
         in_reqs   => [ "gp", "gp" ],
         out_reqs  => ["gp"],
-        emit      => "${op}\t%D0,\t%S0,\t%S1",
+        emit      => "${op} %D0,%S0,%S1",
     };
 }
 
@@ -285,7 +285,7 @@ sub add_rc_op {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "${op}\t%D0,\t%S0,\t%I",
+        emit      => "${op} %D0, %S0, %I",
     };
 }
 
@@ -303,7 +303,7 @@ for my $postfix ( "b", "h", "w", "d", "bu", "wu", "hu" ) {
         outs      => [ "M",   "res" ],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "ld.${postfix}\t%D1,\t%A",
+        emit      => "ld.${postfix} %D1, %A",
     };
 }
 for my $postfix ( "b", "h", "w", "d" ) {
@@ -315,7 +315,7 @@ for my $postfix ( "b", "h", "w", "d" ) {
         outs      => ["M"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "st.${postfix}\t%S2,\t%A",
+        emit      => "st.${postfix} %S2, %A",
     };
 }
 
