@@ -261,8 +261,8 @@ static void loongarch64_lower_for_target(void) {
 		be_after_transform(irg, "lower-switch");
 	}
 
-    // lower_builtins(0, NULL, NULL);
-    // be_after_irp_transform("lower-builtins");
+    lower_builtins(0, NULL, NULL);
+    be_after_irp_transform("lower-builtins");
 }
 
 static unsigned loongarch64_get_op_estimated_cost(const ir_node *node) { return 1; }
