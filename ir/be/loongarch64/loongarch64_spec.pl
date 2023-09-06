@@ -159,7 +159,7 @@ my $callOp = {
         template  => $callOp,
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "bl %G\n",
+        emit      => "bl %I\n",
     },
     call_pointer => {
         template => $callOp,
@@ -172,7 +172,7 @@ my $callOp = {
         out_reqs  => ["gp"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "la.local %D0, %G",
+        emit      => "la.local %D0, %I",
     },
 
     # Branch
@@ -269,7 +269,7 @@ sub add_rr_op {
         irn_flags => ["rematerializable"],
         in_reqs   => [ "gp", "gp" ],
         out_reqs  => ["gp"],
-        emit      => "${op} %D0,%S0,%S1",
+        emit      => "${op} %D0, %S0, %S1",
     };
 }
 
@@ -303,7 +303,7 @@ for my $postfix ( "b", "h", "w", "d", "bu", "wu", "hu" ) {
         outs      => [ "M",   "res" ],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "ld.${postfix} %D1, %A",
+        emit      => "ld.${postfix} %D1, %S1, %I",
     };
 }
 for my $postfix ( "b", "h", "w", "d" ) {
@@ -315,7 +315,7 @@ for my $postfix ( "b", "h", "w", "d" ) {
         outs      => ["M"],
         attr_type => "loongarch64_immediate_attr_t",
         attr      => "ir_entity *const ent, int64_t val",
-        emit      => "st.${postfix} %S2, %A",
+        emit      => "st.${postfix} %S2, %S1, %I",
     };
 }
 

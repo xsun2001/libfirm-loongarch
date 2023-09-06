@@ -30,8 +30,7 @@ static void loongarch64_emit_immediate(const ir_node *node) {
     ir_entity *const                          ent  = attr->ent;
     int64_t                                   val  = attr->val;
     if (ent) {
-        be_emit_irprintf("&%s", get_entity_ld_name(ent));
-        be_emit_irprintf("%d", val);
+        be_gas_emit_entity(ent);
     } else {
         be_emit_irprintf("%d", val);
     }
@@ -82,25 +81,6 @@ void loongarch64_emitf(const ir_node *node, const char *format, ...) {
             break;
         }
 
-        case 'A': {
-            loongarch64_emit_source_register(node, 1);
-            be_emit_char(',');
-            be_emit_char(' ');
-            loongarch64_emit_immediate(node);
-            break;
-        }
-
-        case 'G': {
-            loongarch64_immediate_attr_t const *const attr = get_loongarch64_immediate_attr_const(node);
-            ir_entity *const                          ent  = attr->ent;
-            if (ent) {
-                be_gas_emit_entity(ent);
-            } else {
-                panic("no entity for global address");
-            }
-            break;
-        }
-
         case 'B': {
             loongarch64_cond_t const cond = va_arg(ap, loongarch64_cond_t);
             be_emit_string(loongarch64_cond_inst_name(cond));
@@ -123,8 +103,7 @@ static void emit_loongarch64_b(const ir_node *node) { emit_jmp(node, node); }
 static void emit_loongarch64_b_cond(const ir_node *node) {
     loongarch64_cond_t const     cond  = get_loongarch64_cond_attr_const(node)->cond;
     be_cond_branch_projs_t const projs = be_get_cond_branch_projs(node);
-    char const *const            fmt =
-        cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B %S0, %L" : "%B %S0, %S1, %L";
+    char const *const fmt = cond == loongarch64_beqz || cond == loongarch64_bnez ? "%B %S0, %L" : "%B %S0, %S1, %L";
 
     if (be_is_fallthrough(projs.t)) {
         loongarch64_emitf(node, fmt, loongarch64_negate_cond(cond), projs.f);
