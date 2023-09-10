@@ -4,6 +4,13 @@
 
 [TOC]
 
+代码仓库：
+
+1. GitHub：[libfirm-loongarch](https://github.com/xsun2001/libfirm-loongarch)
+2. README：[README-LA64.md](https://github.com/xsun2001/libfirm-loongarch/blob/loongarch/README-LA64.md)
+
+
+
 ## libFIRM与FIRM IR简介
 
 ### libFIRM
@@ -123,7 +130,7 @@ print_int(4);
 
 2. 定义后端架构
 
-   1. 在`*arch_isa_if_t* const loongarch64_isa_if`中定义相关信息，包括
+   1. 在`arch_isa_if_t const loongarch64_isa_if`中定义相关信息，包括
       1. 名字
       2. 指针大小，端序，最大对齐，移位运算上限
       3. 寄存器信息、数量与类别
@@ -427,6 +434,8 @@ typedef struct calling_convention_t {
 
 在主生成函数`loongarch64_transform_graph`中，通过`set_allocatable_regs`告知FIRM哪些寄存器是可分配的。设置调用约定后，还应为参数分配对应的`entity`，并使用`be_add_parameter_entity_stores`来处理后面需要参数内存地址的特殊情况（比如对寄存器参数`a`取地址`&a`）。
 
+
+
 ## 指令输出 `loongarch64_emitter.c`
 
 1. 处理FIRM的特殊节点
@@ -451,6 +460,8 @@ typedef struct calling_convention_t {
 
    1. 对于`addi` `load`等立即数或偏移量，直接输出
    2. 对于`la.local` `bl`等描述全局地址的，通过`be_gas_emit_entity(ent);`输出
+
+
 
 ## “底层化”
 
@@ -477,28 +488,103 @@ FIRM提供了一套底层化函数帮助解构语言层面的高级特性。这�
 
 4. 底层化`switch`语句，目前直接全转化为if-else链
 
+
+
+## 功能测试
+
+为了能在x86等其他架构的机器上测试编译器功能，我使用了[crosstool-NG](https://crosstool-ng.github.io/)编译交叉工具链，并使用[QEMU](https://www.qemu.org/)运行用户态Loongarch64程序。过程如下：
+
+1. crosstool-NG
+   1. 克隆其源代码仓库。注意使用GitHub仓库的最新版本，否则没有Loongarch64的支持。
+   2. 按照[文档](https://crosstool-ng.github.io/docs/install/)编译安装crosstool-NG
+   3. `ct-ng loongarch64-unknown-linux-gnu`加载示例配置
+   4. `ct-ng build`构建工具链
+   5. 配置环境变量
+2. QEMU
+   1. 下载源代码
+   2. 配置：`./configure --target-list=loongarch64-linux-user --prefix=/path/to/qemu/install`
+   3. 编译安装：`make && make install`
+   4. 配置环境变量
+   5. 使用刚才安装的交叉工具链的sysroot作为QEMU参数启动：`qemu-loongarch64 -L "/path/to/your/cross-compiler/loongarch64-unknown-linux-gnu/sysroot" a.out`
+
+我在仓库的`test/`目录下编写了若干测试文件和测试脚本，包括了：
+
+1. `001.c`: 空`main`函数
+2. `002.c`-`006.c`: 算数操作
+3. `008.c`-`012.c`: 内存加载、存储与全局地址
+4. `013.c`-`015.c`: 函数调用与参数传递
+5. `016.c`-`022.c`: 比较与`if`分支
+6. `023.c`: 三元运算符
+7. `024.c`: 斐波那契数列
+8. `025.c`: 快速排序
+9. `026.c`: 归并排序
+10. `027.c`: 二分搜索
+11. `028.c`: Dijkstra单元最短路算法
+12. `029.c`: 矩阵乘法
+13. `030.c`-`032.c`: 链接调用标准库函数，如`scanf` `printf` `malloc` `free`
+
+测试脚本如下：
+
+```bash
+#!/bin/bash
+
+CROSS_PREFIX="loongarch64-unknown-linux-gnu"
+CROSS_SYSROOT="/data/xcx/opt/x-tools/loongarch64-unknown-linux-gnu/loongarch64-unknown-linux-gnu/sysroot"
+
+cmake --build ../../build
+
+rm -rf $1
+mkdir $1
+cd $1
+
+if [[ -z "$CROSS_PREFIX" ]]; then
+    ../../../build/cparser -mdump=all -O0 -S ../$1.c -o $1.s
+    ../../../build/cparser -O0 ../$1.c -o $1.o
+    objdump -d $1.o > $1.asm.s
+    ./$1.o
+else
+    ../../../build/cparser --target=$CROSS_PREFIX -mdump=all -O0 -S ../$1.c -o $1.s
+    ../../../build/cparser --target=$CROSS_PREFIX -O0 ../$1.c -o $1.o
+    $CROSS_PREFIX-objdump -d $1.o > $1.asm.s
+    qemu-loongarch64 -L $CROSS_SYSROOT $1.o
+fi
+
+echo $?
+cd ..
+```
+
+1. 判断了是否为交叉编译环境，如果不是，则直接调用`cparser`和运行程序，否则指定`--target`和使用QEMU
+2. 产生了`.s` `.o`和反汇编的`.asm.s`文件，方便调试
+3. 使用`-mdump=all`产生所有阶段的IR图信息，方便调试
+
+
+
 ## 未来工作
 
 1. 添加浮点数支持，要做的工作有：
    1. 在`spec`文件中添加浮点寄存器、浮点指令。
    2. `transform`时大多数二元指令只需更改助手函数即可。需要额外处理的是`Conv`节点需要负责浮点、整数的相互转化和函数调用约定相关的变化。
 2. 添加变长数组支持，也即`Alloc`节点
-   1. 在`SP`之外，还需要维护`TP`寄存器保存栈底指针，改用`TP`索引静态分配的栈上空间即可快速实现`Alloc`
-3. `Builtin`相关
+   1. 在`SP`之外，还需要维护`TP`寄存器保存栈底指针，改用`TP`索引静态分配的栈上空间即可快速实现`Alloc`。
+3. 添加`MemPerm`节点的支持
+   1. 该节点要求在不改变任何寄存器值的情况下，转移若干内存位置的值，通常在大量寄存器Spill/Reload的情况下使用。
+   2. 这个节点的翻译较为困难，而且在大部分已有的后端中，这个节点的支持都是试验性或不高效的。
+
+4. `Builtin`相关
    1. 添加变长参数函数的定义支持。即支持`ir_bk_va_arg` `ir_bk_va_start`。这需要参考函数调用约定和ABI相关的文档。
-   2. 添加`ir_bk_prefetch`支持，即生成`preld 0, %D0, 0`
+   2. 添加`ir_bk_prefetch`支持，即生成`preld 0, %D0, 0。`
    3. 添加`ir_bk_ffs` `ir_bk_clz` `ir_bk_ctz` `ir_bk_bswap`等支持。这些也都在Loongarch64有方便的指令级实现。
-   4. 添加`ir_bk_trap`支持，即生成`break 0`
-4. 添加内联汇编支持，即`ASM`节点
-5. “底层化”相关
+   4. 添加`ir_bk_trap`支持，即生成`break 0`。
+5. 添加内联汇编支持，即`ASM`节点
+6. “底层化”相关
    1. 更高效的`CopyB`翻译。即对于小数组使用Load/Store，对于中数组可以尝试使用向量指令集扩展实现，对于大数组再使用`memcpy`。
-   2. 更高效的`switch`翻译。即：
-      1. 对于分支很少的，转化为if-else链
-      2. 对于分支较多，但是分支条件有序且较为紧凑的，转化为跳转表
-      3. 对于分支较多，但是分支条件有序但较为分散的，转化为二分搜索
-      4. 对于其他情况，转化为if-else链
+   2. 更高效的`Switch`翻译。即：
+      1. 对于分支很少的，转化为if-else链；
+      2. 对于分支较多，但是分支条件有序且较为紧凑的，转化为跳转表；
+      3. 对于分支较多，但是分支条件有序但较为分散的，转化为二分搜索；
+      4. 对于其他情况，转化为if-else链；
       5. 某些特殊情况，如对`flag`类数据做`switch`，即每个分支只判断一位数据，则可以用位运算来生成。
-6. 探索更多指令集相关的优化和FIRM IR相关的优化
+7. 探索更多指令集相关的优化和FIRM IR相关的优化
    1. 目前观察到寄存器分配、callee-save恢复相关的代码会引入过多的`be_Copy`，这需要进一步调查。
    2. 但是似乎FIRM内部的优化代码有些问题，即使使用amd64后端，在开启`-O2`对情况下自己可能会崩溃。所以这部分也被迫放缓。
 
